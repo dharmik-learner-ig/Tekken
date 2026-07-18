@@ -618,15 +618,15 @@
             let updatedX = currentActorData.posX + (joyXOffset * 10);
             updatedX = Math.max(20, Math.min(canvas.width - 40, updatedX));
 
+            // CRITICAL FIX: Update movement using specific field targeting. 
+            // This prevents positions updates from overwriting live health updates.
             const inputStatePatch = {};
-            inputStatePatch[clientIdentity] = {
-                ...currentActorData,
-                posX: updatedX,
-                posY: localYPositions[clientIdentity],
-                actionState: localYPositions[clientIdentity] < 0 ? 'jumping' : (joystickActive ? 'walking' : 'idle'),
-                lastUpdated: Date.now()
-            };
-            setDoc(sessionRoomPath, inputStatePatch, { merge: true });
+            inputStatePatch[`${clientIdentity}.posX`] = updatedX;
+            inputStatePatch[`${clientIdentity}.posY`] = localYPositions[clientIdentity];
+            inputStatePatch[`${clientIdentity}.actionState`] = localYPositions[clientIdentity] < 0 ? 'jumping' : (joystickActive ? 'walking' : 'idle');
+            inputStatePatch[`${clientIdentity}.lastUpdated`] = Date.now();
+            
+            updateDoc(sessionRoomPath, inputStatePatch);
         }, 30);
 
         function sendMovementUpdate(actionState) {
@@ -635,12 +635,11 @@
             if (!currentActorData || currentActorData.health <= 0) return;
 
             const inputStatePatch = {};
-            inputStatePatch[clientIdentity] = {
-                ...currentActorData,
-                actionState: actionState,
-                lastUpdated: Date.now()
-            };
-            setDoc(sessionRoomPath, inputStatePatch, { merge: true });
+            inputStatePatch[`${clientIdentity}.actionState`] = actionState;
+            inputStatePatch[`${clientIdentity}.lastUpdated`] = Date.now();
+            
+            updateDoc(sessionRoomPath, inputStatePatch);
+            
             if (actionState === 'punching' || actionState === 'kicking') {
                 evaluateStrikeHitbox();
             }
@@ -656,14 +655,12 @@
             const verticalTargetDiff = Math.abs((attacker.posY || 0) - (target.posY || 0));
             if (Math.abs(attacker.posX - target.posX) < 75 && verticalTargetDiff < 50) {
                 const targetNewHealth = Math.max(0, target.health - 7);
-                const matchDamageUpdate = {};
                 
-                matchDamageUpdate[opposingTargetKey] = {
-                    ...target,
-                    selected: true,
-                    health: targetNewHealth
-                };
-                setDoc(sessionRoomPath, matchDamageUpdate, { merge: true });
+                // CRITICAL FIX: Use specific field targeting so the movement loop doesn't roll back the health drop
+                const matchDamageUpdate = {};
+                matchDamageUpdate[`${opposingTargetKey}.health`] = targetNewHealth;
+                
+                updateDoc(sessionRoomPath, matchDamageUpdate);
             }
         }
 
