@@ -411,9 +411,8 @@
     let renderVelocitiesY = { dharmik: 0, avisha: 0 };
     let localActionStates = { dharmik: 'idle', avisha: 'idle' };
     
-    // Adjusted for a much slower, floatier, and higher upward jump
     const gravity = 0.22;
-    const movementSpeed = 2.5; 
+    const movementSpeed = 4.5; // Increased running speed here
     const jumpForce = -9.5;
     let hasJumpedThisInput = false;
 
@@ -599,7 +598,6 @@
         };
 
         const joyContainer = document.getElementById("joyContainer");
-        const joyKnob = document.getElementById("ctrl-punch"); // fallback element target or dynamic rect finder
         let joystickActive = false;
         let joyXOffset = 0;
         let joyYOffset = 0;
@@ -667,7 +665,6 @@
 
             if (localActionStates[clientIdentity] === 'shooting') return;
 
-            // Trigger only a single jump when pulled upwards
             if (joyYOffset < -0.5) {
                 if (renderPositionsY[clientIdentity] === 0 && !hasJumpedThisInput) {
                     renderVelocitiesY[clientIdentity] = jumpForce; 
@@ -675,7 +672,6 @@
                     hasJumpedThisInput = true;
                 }
             } else {
-                // Reset flag when joystick is returned below the jump threshold
                 hasJumpedThisInput = false;
             }
 
