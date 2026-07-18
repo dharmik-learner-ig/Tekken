@@ -14,7 +14,6 @@
             -webkit-tap-highlight-color: transparent;
         }
         
-        /* Forces mobile screen optimization and prevents scrolling artifacts */
         html, body {
             width: 100%;
             height: 100%;
@@ -27,7 +26,6 @@
             align-items: center;
         }
 
-        /* Seamless Mobile Portrait Aspect Enforcer */
         #game-container {
             width: 100vw;
             height: 100vh;
@@ -41,7 +39,6 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* Screens Management */
         .screen {
             position: absolute;
             top: 0;
@@ -77,7 +74,6 @@
             text-align: center;
         }
 
-        /* Dynamic Character Cards Grid */
         .char-grid {
             display: flex;
             gap: 20px;
@@ -96,7 +92,6 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
-        /* Dynamic Identity Glow Rulesets */
         #card-dharmik.selected {
             border-color: #00f0ff;
             background: rgba(0, 240, 255, 0.08);
@@ -152,7 +147,6 @@
             font-family: monospace;
         }
 
-        /* Core Battle Layout Screen */
         #battle-screen {
             background: #05050a;
             display: flex;
@@ -162,7 +156,6 @@
             padding: 0;
         }
 
-        /* Responsive Viewport */
         #canvas-wrapper {
             position: relative;
             width: 100%;
@@ -175,7 +168,6 @@
             display: block;
         }
 
-        /* Sleek Modern HUD Bar Overlays */
         .hud {
             position: absolute;
             top: 20px;
@@ -219,7 +211,6 @@
         #hud-p1-name { left: 4px; color: #00f0ff; }
         #hud-p2-name { right: 4px; color: #ff3e6c; }
 
-        /* Dynamic Touch Controller Dashboard Overlay */
         #controller-overlay {
             width: 100%;
             height: 260px;
@@ -233,7 +224,6 @@
             box-shadow: inset 0 10px 20px rgba(0,0,0,0.3);
         }
 
-        /* Premium Mechanical Touch D-PAD */
         .dpad {
             position: relative;
             width: 130px;
@@ -247,7 +237,6 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             transition: all 0.1s ease;
         }
-        /* Dynamic D-pad Glow Actions */
         .dpad-btn:active {
             background: #2a2a44;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
@@ -260,7 +249,6 @@
             background: #1f1f30; pointer-events: none;
         }
 
-        /* Premium Action Control Clusters */
         .action-cluster {
             display: flex;
             gap: 20px;
@@ -280,7 +268,6 @@
             box-shadow: 0 6px 12px rgba(0,0,0,0.3);
         }
         
-        /* Specific Action Button Identity Highlights */
         .punch-btn {
             background: linear-gradient(145deg, #2b2b40, #1e1e2d);
             border: 2px solid #00f0ff;
@@ -308,7 +295,6 @@
 
 <div id="game-container">
 
-    <!-- Screen 1: Lobby Menu Layer -->
     <div id="lobby-screen" class="screen">
         <h1>TEKKEN RETRO 2D</h1>
         <div class="subtitle-text">Dynamic Multi-Device Edition</div>
@@ -330,7 +316,6 @@
         <div id="status-message">Awaiting cloud connection room setup...</div>
     </div>
 
-    <!-- Screen 2: Battle Arena Canvas Window -->
     <div id="battle-screen" class="screen hidden">
         <div id="canvas-wrapper">
             <div class="hud">
@@ -346,7 +331,6 @@
             <canvas id="gameCanvas"></canvas>
         </div>
 
-        <!-- Custom Interactive Remote Control Overlay -->
         <div id="controller-overlay">
             <div class="dpad">
                 <div class="dpad-btn dpad-left" id="ctrl-left" data-key="Left"></div>
@@ -364,10 +348,9 @@
 
 </div>
 
-<!-- Realtime Multi-Client Database Orchestration Script -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDKiDtpmLmnGrvpTwXJfpJyHY-t88Q7UVI",
@@ -410,14 +393,9 @@
             lastUpdated: Date.now()
         };
 
-        try {
-            await updateDoc(sessionRoomPath, packagePayload);
-        } catch(err) {
-            await setDoc(sessionRoomPath, packagePayload, { merge: true });
-        }
+        await setDoc(sessionRoomPath, packagePayload, { merge: true });
     }
 
-    // Dynamic Database Synchronization Updates Engine hook 
     onSnapshot(sessionRoomPath, (snapshot) => {
         if (!snapshot.exists()) {
             document.getElementById("status-message").innerText = "Online. Choose a profile module slot.";
@@ -426,10 +404,9 @@
         
         const newIncomingState = snapshot.data();
         
-        // Dynamic Flash Tracker on Damage changes
         ['dharmik', 'avisha'].forEach(key => {
             if (synchronizedLobbyState[key] && newIncomingState[key] && newIncomingState[key].health < synchronizedLobbyState[key].health) {
-                localVisualDamageTicker[key] = 8; // Trigger 8 frames of color invert flashing
+                localVisualDamageTicker[key] = 8;
             }
         });
 
@@ -452,7 +429,6 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Scale setup exactly for high density mobile frames dynamically
         function resizeGameWindow() {
             canvas.width = canvas.parentElement.clientWidth;
             canvas.height = canvas.parentElement.clientHeight;
@@ -501,7 +477,7 @@
                 lastUpdated: Date.now()
             };
             
-            updateDoc(sessionRoomPath, inputStatePatch);
+            setDoc(sessionRoomPath, inputStatePatch, { merge: true });
         }
 
         function evaluateStrikeHitbox() {
@@ -519,11 +495,10 @@
                     ...target,
                     health: targetNewHealth
                 };
-                updateDoc(sessionRoomPath, matchDamageUpdate);
+                setDoc(sessionRoomPath, matchDamageUpdate, { merge: true });
             }
         }
 
-        // Setup Mobile Touch Events Handling cleanly with preventDefaults
         ['ctrl-left', 'ctrl-right', 'ctrl-up', 'ctrl-punch', 'ctrl-kick'].forEach(elemId => {
             const btnTarget = document.getElementById(elemId);
             const actionKey = btnTarget.getAttribute("data-key");
@@ -531,16 +506,13 @@
             btnTarget.addEventListener("touchstart", (e) => { e.preventDefault(); handleControlState(actionKey, true); }, {passive: false});
             btnTarget.addEventListener("touchend", (e) => { e.preventDefault(); handleControlState(actionKey, false); }, {passive: false});
             
-            // Fallbacks for browser window debugging
             btnTarget.addEventListener("mousedown", () => handleControlState(actionKey, true));
             btnTarget.addEventListener("mouseup", () => handleControlState(actionKey, false));
         });
 
-        // Frame rendering cycle
         function runLocalRenderLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Dynamic Arena Background gradient based on current hit states
             let backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             if (localVisualDamageTicker.dharmik > 0 || localVisualDamageTicker.avisha > 0) {
                 backgroundGradient.addColorStop(0, '#3a1520');
@@ -552,11 +524,9 @@
             ctx.fillStyle = backgroundGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Ground drawing
             ctx.fillStyle = "#22223b";
             ctx.fillRect(0, groundLevel, canvas.width, canvas.height - groundLevel);
 
-            // Render characters dynamic parameters loops
             ['dharmik', 'avisha'].forEach(playerKey => {
                 const liveData = synchronizedLobbyState[playerKey];
                 const layout = entities[playerKey];
@@ -567,7 +537,6 @@
 
                 const charY = groundLevel - layout.height;
 
-                // Color Flashing engine logic when damage is intercepted
                 if (localVisualDamageTicker[playerKey] > 0) {
                     ctx.fillStyle = "#ffffff";
                     localVisualDamageTicker[playerKey]--;
@@ -575,17 +544,14 @@
                     ctx.fillStyle = layout.color;
                 }
 
-                // Smooth round rect for capsules
                 ctx.beginPath();
                 ctx.roundRect(liveData.posX, charY, layout.width, layout.height, 12);
                 ctx.fill();
 
-                // Neon structural indicator lines around active objects
                 ctx.strokeStyle = 'rgba(255,255,255,0.2)';
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                // Visual Action Extension Overlays
                 if (liveData.actionState === 'punching') {
                     ctx.fillStyle = "#00f0ff";
                     ctx.fillRect(playerKey === 'dharmik' ? liveData.posX + layout.width : liveData.posX - 25, charY + 25, 25, 12);
@@ -594,7 +560,6 @@
                     ctx.fillRect(playerKey === 'dharmik' ? liveData.posX + layout.width : liveData.posX - 30, charY + 50, 30, 15);
                 }
 
-                // Place Identity Character Models inside
                 ctx.font = "36px sans-serif";
                 ctx.textAlign = "center";
                 ctx.fillText(layout.avatar, liveData.posX + (layout.width / 2), charY + 58);
