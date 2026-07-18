@@ -657,8 +657,10 @@
             if (Math.abs(attacker.posX - target.posX) < 75 && verticalTargetDiff < 50) {
                 const targetNewHealth = Math.max(0, target.health - 7);
                 const matchDamageUpdate = {};
+                
                 matchDamageUpdate[opposingTargetKey] = {
                     ...target,
+                    selected: true,
                     health: targetNewHealth
                 };
                 setDoc(sessionRoomPath, matchDamageUpdate, { merge: true });
