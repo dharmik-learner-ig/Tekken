@@ -406,14 +406,14 @@
     let synchronizedLobbyState = {};
     let localVisualDamageTicker = { dharmik: 0, avisha: 0 };
     
-    // Normal, balanced physics variables (Not fast)
+    // Significantly lowered movement and jumping physics values
     let renderPositionsX = { dharmik: 80, avisha: 260 };
     let renderPositionsY = { dharmik: 0, avisha: 0 };
     let renderVelocitiesY = { dharmik: 0, avisha: 0 };
     let localActionStates = { dharmik: 'idle', avisha: 'idle' };
-    const gravity = 0.8;
-    const movementSpeed = 4.5; 
-    const jumpForce = -13;
+    const gravity = 0.5;
+    const movementSpeed = 2.5; 
+    const jumpForce = -9;
 
     let activeProjectiles = [];
 
@@ -486,7 +486,6 @@
                 localVisualDamageTicker[key] = 8;
             }
             
-            // Sync remote opponent properties instantly without rubber-banding
             if (key !== clientIdentity && newIncomingState[key]) {
                 renderPositionsX[key] = newIncomingState[key].posX;
                 localActionStates[key] = newIncomingState[key].actionState;
@@ -572,7 +571,7 @@
             owner: owner,
             x: startX + (30 * direction),
             y: startY,
-            speed: 8 * direction, // Decreased ball speed to look normal
+            speed: 5 * direction, // Slower fireball speed
             type: owner === 'dharmik' ? 'water' : 'fire',
             active: true
         });
@@ -656,7 +655,6 @@
         });
         window.addEventListener("mouseup", resetJoystick);
 
-        // Instant local movement calculation loop to completely remove controller response delay
         setInterval(() => {
             if (!clientIdentity || synchronizedLobbyState.rematchPending) return;
             const currentActorData = synchronizedLobbyState[clientIdentity];
@@ -669,7 +667,6 @@
                 localActionStates[clientIdentity] = 'jumping';
             }
 
-            // Normal smooth running speed implementation
             renderPositionsX[clientIdentity] += (joyXOffset * movementSpeed);
             renderPositionsX[clientIdentity] = Math.max(20, Math.min(canvas.width - 40, renderPositionsX[clientIdentity]));
 
@@ -682,13 +679,12 @@
             }
 
             sendCloudStatePatch();
-        }, 1000 / 60); // Calculates at locked 60 FPS locally
+        }, 1000 / 60);
 
-        // Blazes network updates at throttled frames to avoid database locking delays
         let lastCloudUpdate = 0;
         function sendCloudStatePatch() {
             const now = Date.now();
-            if (now - lastCloudUpdate < 45) return; // Throttles write triggers to clear device lag
+            if (now - lastCloudUpdate < 45) return; 
             lastCloudUpdate = now;
 
             const inputStatePatch = {};
@@ -707,7 +703,6 @@
 
             localActionStates[clientIdentity] = actionState;
             
-            // Push instantly to cloud package
             const inputStatePatch = {};
             inputStatePatch[`${clientIdentity}.actionState`] = actionState;
             inputStatePatch[`${clientIdentity}.lastUpdated`] = Date.now();
@@ -756,7 +751,6 @@
         function runLocalRenderLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Normal jumping mechanics
             ['dharmik', 'avisha'].forEach(key => {
                 if (renderPositionsY[key] < 0 || renderVelocitiesY[key] !== 0) {
                     renderVelocitiesY[key] += gravity;
