@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Retro Stickman Fighter: Dharmik vs Avisha</title>
+    <title>Retro Stickman Joystick Fighter</title>
     <style>
         * {
             box-sizing: border-box;
@@ -108,7 +108,6 @@
         .char-avatar {
             font-size: 56px;
             margin-bottom: 12px;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
         }
         .char-name {
             font-weight: 700;
@@ -133,11 +132,6 @@
             cursor: pointer;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(228, 63, 90, 0.3);
-            transition: all 0.2s;
-        }
-        .menu-btn:active {
-            transform: scale(0.98);
-            opacity: 0.9;
         }
         #status-message {
             margin-top: 20px;
@@ -185,20 +179,17 @@
             border-radius: 7px;
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(4px);
         }
         .health-fill {
             height: 100%;
             width: 100%;
-            transition: width 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: width 0.15s ease-out;
         }
         #p1-health {
             background: linear-gradient(90deg, #00bfff, #00f0ff);
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
         }
         #p2-health {
             background: linear-gradient(90deg, #ff3e6c, #ff7697);
-            box-shadow: 0 0 10px rgba(255, 62, 108, 0.5);
         }
         .hud-name {
             position: absolute;
@@ -219,34 +210,32 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 30px;
+            padding: 0 35px;
             padding-bottom: env(safe-area-inset-bottom, 15px);
-            box-shadow: inset 0 10px 20px rgba(0,0,0,0.3);
         }
 
-        .dpad {
+        /* Joystick Styles */
+        .joystick-container {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 4px solid #252538;
+            border-radius: 50%;
             position: relative;
-            width: 130px;
-            height: 130px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
         }
-        .dpad-btn {
+        .joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(145deg, #3a3a54, #212133);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
             position: absolute;
-            background: #252538;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            transition: all 0.1s ease;
-        }
-        .dpad-btn:active {
-            background: #2a2a44;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
-        }
-        .dpad-left { top: 45px; left: 0; width: 45px; height: 40px; }
-        .dpad-right { top: 45px; right: 0; width: 45px; height: 40px; }
-        .dpad-up { top: 0; left: 45px; width: 40px; height: 45px; }
-        .dpad-center {
-            top: 45px; left: 45px; width: 40px; height: 40px;
-            background: #1f1f30; pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            transition: transform 0.05s linear;
         }
 
         .action-cluster {
@@ -254,17 +243,16 @@
             gap: 20px;
         }
         .action-btn {
-            width: 64px;
-            height: 64px;
+            width: 68px;
+            height: 68px;
             border-radius: 50%;
             color: white;
             font-weight: 800;
-            font-size: 20px;
+            font-size: 22px;
             display: flex;
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            transition: all 0.1s ease;
             box-shadow: 0 6px 12px rgba(0,0,0,0.3);
         }
         
@@ -273,8 +261,6 @@
             border: 2px solid #00f0ff;
         }
         .punch-btn:active {
-            transform: scale(0.92);
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
             background: #00f0ff;
             color: #111;
         }
@@ -284,8 +270,6 @@
             border: 2px solid #ff3e6c;
         }
         .kick-btn:active {
-            transform: scale(0.92);
-            box-shadow: 0 0 20px rgba(255, 62, 108, 0.6);
             background: #ff3e6c;
             color: #111;
         }
@@ -297,7 +281,7 @@
 
     <div id="lobby-screen" class="screen">
         <h1>TEKKEN RETRO 2D</h1>
-        <div class="subtitle-text">Stickman Edition</div>
+        <div class="subtitle-text">Stickman Joystick Edition</div>
         
         <div class="char-grid">
             <div class="char-card" id="card-dharmik" onclick="selectProfile('dharmik')">
@@ -308,7 +292,7 @@
             <div class="char-card" id="card-avisha" onclick="selectProfile('avisha')">
                 <div class="char-avatar">👩‍🎤</div>
                 <div class="char-name">Avisha</div>
-                <div class="char-subtitle">Crimson Stickwoman</div>
+                <div class="char-subtitle">Crimson Fighter</div>
             </div>
         </div>
 
@@ -332,11 +316,9 @@
         </div>
 
         <div id="controller-overlay">
-            <div class="dpad">
-                <div class="dpad-btn dpad-left" id="ctrl-left" data-key="Left"></div>
-                <div class="dpad-btn dpad-right" id="ctrl-right" data-key="Right"></div>
-                <div class="dpad-btn dpad-up" id="ctrl-up" data-key="Up"></div>
-                <div class="dpad-center"></div>
+            <!-- New Joystick System -->
+            <div class="joystick-container" id="joyContainer">
+                <div class="joystick-knob" id="joyKnob"></div>
             </div>
 
             <div class="action-cluster">
@@ -397,10 +379,7 @@
     }
 
     onSnapshot(sessionRoomPath, (snapshot) => {
-        if (!snapshot.exists()) {
-            document.getElementById("status-message").innerText = "Online. Choose a profile module slot.";
-            return;
-        }
+        if (!snapshot.exists()) return;
         
         const newIncomingState = snapshot.data();
         
@@ -439,45 +418,90 @@
         const groundLevel = canvas.height - 40;
 
         const entities = {
-            dharmik: { color: "#00f0ff", headingRight: true },
-            avisha: { color: "#ff3e6c", headingRight: false }
+            dharmik: { color: "#00f0ff" },
+            avisha: { color: "#ff3e6c" }
         };
 
-        function handleControlState(actionKey, isActive) {
-            if (!clientIdentity) return;
+        // Joystick Input Logic
+        const joyContainer = document.getElementById("joyContainer");
+        const joyKnob = document.getElementById("joyKnob");
+        let joystickActive = false;
+        let joyXOffset = 0;
+
+        function updateJoystickPosition(touchX) {
+            const containerRect = joyContainer.getBoundingClientRect();
+            const centerX = containerRect.left + containerRect.width / 2;
+            let deltaX = touchX - centerX;
             
+            const maxRadius = 35;
+            if (deltaX > maxRadius) deltaX = maxRadius;
+            if (deltaX < -maxRadius) deltaX = -maxRadius;
+
+            joyKnob.style.transform = `translate(${deltaX}px, 0px)`;
+            joyXOffset = deltaX / maxRadius; // Values between -1 and 1
+        }
+
+        function resetJoystick() {
+            joystickActive = false;
+            joyXOffset = 0;
+            joyKnob.style.transform = 'translate(0px, 0px)';
+            sendMovementUpdate('idle');
+        }
+
+        joyContainer.addEventListener("touchstart", (e) => {
+            joystickActive = true;
+            updateJoystickPosition(e.touches[0].clientX);
+        });
+        window.addEventListener("touchmove", (e) => {
+            if (!joystickActive) return;
+            updateJoystickPosition(e.touches[0].clientX);
+        });
+        window.addEventListener("touchend", resetJoystick);
+
+        joyContainer.addEventListener("mousedown", (e) => {
+            joystickActive = true;
+            updateJoystickPosition(e.clientX);
+        });
+        window.addEventListener("mousemove", (e) => {
+            if (!joystickActive) return;
+            updateJoystickPosition(e.clientX);
+        });
+        window.addEventListener("mouseup", resetJoystick);
+
+        // Movement Processing Ticker loop 
+        setInterval(() => {
+            if (!joystickActive || !clientIdentity) return;
             const currentActorData = synchronizedLobbyState[clientIdentity];
             if (!currentActorData || currentActorData.health <= 0) return;
 
-            let updatedX = currentActorData.posX;
-            let currentStatus = 'idle';
-
-            if (actionKey === 'Left' && isActive) {
-                updatedX = Math.max(20, updatedX - 15);
-                currentStatus = 'walking';
-            }
-            if (actionKey === 'Right' && isActive) {
-                updatedX = Math.min(canvas.width - 40, updatedX + 15);
-                currentStatus = 'walking';
-            }
-            if (actionKey === 'Punch' && isActive) {
-                currentStatus = 'punching';
-                evaluateStrikeHitbox();
-            }
-            if (actionKey === 'Kick' && isActive) {
-                currentStatus = 'kicking';
-                evaluateStrikeHitbox();
-            }
+            let updatedX = currentActorData.posX + (joyXOffset * 10);
+            updatedX = Math.max(20, Math.min(canvas.width - 40, updatedX));
 
             const inputStatePatch = {};
             inputStatePatch[clientIdentity] = {
                 ...currentActorData,
                 posX: updatedX,
-                actionState: currentStatus,
+                actionState: 'walking',
                 lastUpdated: Date.now()
             };
-            
             setDoc(sessionRoomPath, inputStatePatch, { merge: true });
+        }, 30);
+
+        function sendMovementUpdate(actionState) {
+            if (!clientIdentity) return;
+            const currentActorData = synchronizedLobbyState[clientIdentity];
+            if (!currentActorData || currentActorData.health <= 0) return;
+
+            const inputStatePatch = {};
+            inputStatePatch[clientIdentity] = {
+                ...currentActorData,
+                actionState: actionState,
+                lastUpdated: Date.now()
+            };
+            setDoc(sessionRoomPath, inputStatePatch, { merge: true });
+            if (actionState === 'punching' || actionState === 'kicking') {
+                evaluateStrikeHitbox();
+            }
         }
 
         function evaluateStrikeHitbox() {
@@ -487,8 +511,7 @@
 
             if (!attacker || !target || target.health <= 0) return;
 
-            const absoluteRange = Math.abs(attacker.posX - target.posX);
-            if (absoluteRange < 75) {
+            if (Math.abs(attacker.posX - target.posX) < 75) {
                 const targetNewHealth = Math.max(0, target.health - 7);
                 const matchDamageUpdate = {};
                 matchDamageUpdate[opposingTargetKey] = {
@@ -499,15 +522,14 @@
             }
         }
 
-        ['ctrl-left', 'ctrl-right', 'ctrl-up', 'ctrl-punch', 'ctrl-kick'].forEach(elemId => {
+        ['ctrl-punch', 'ctrl-kick'].forEach(elemId => {
             const btnTarget = document.getElementById(elemId);
             const actionKey = btnTarget.getAttribute("data-key");
 
-            btnTarget.addEventListener("touchstart", (e) => { e.preventDefault(); handleControlState(actionKey, true); }, {passive: false});
-            btnTarget.addEventListener("touchend", (e) => { e.preventDefault(); handleControlState(actionKey, false); }, {passive: false});
-            
-            btnTarget.addEventListener("mousedown", () => handleControlState(actionKey, true));
-            btnTarget.addEventListener("mouseup", () => handleControlState(actionKey, false));
+            btnTarget.addEventListener("touchstart", (e) => { e.preventDefault(); sendMovementUpdate(actionKey === 'Punch' ? 'punching' : 'kicking'); });
+            btnTarget.addEventListener("touchend", (e) => { e.preventDefault(); sendMovementUpdate('idle'); });
+            btnTarget.addEventListener("mousedown", () => sendMovementUpdate(actionKey === 'Punch' ? 'punching' : 'kicking'));
+            btnTarget.addEventListener("mouseup", () => sendMovementUpdate('idle'));
         });
 
         function runLocalRenderLoop() {
@@ -524,11 +546,9 @@
             ctx.fillStyle = backgroundGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Ground design
             ctx.fillStyle = "#22223b";
             ctx.fillRect(0, groundLevel, canvas.width, canvas.height - groundLevel);
 
-            // Stickman procedural graphics loop
             ['dharmik', 'avisha'].forEach(playerKey => {
                 const liveData = synchronizedLobbyState[playerKey];
                 const layout = entities[playerKey];
@@ -537,7 +557,6 @@
 
                 document.getElementById(`${playerKey === 'dharmik' ? 'p1' : 'p2'}-health`).style.width = `${liveData.health}%`;
 
-                // Set up dynamic layout anchors based on positions
                 const baseHeadX = liveData.posX;
                 const baseHeadY = groundLevel - 80;
 
@@ -552,60 +571,47 @@
                 }
 
                 if (liveData.health <= 0) {
-                    // Knocked out state configuration
                     ctx.beginPath();
                     ctx.arc(baseHeadX, groundLevel - 15, 10, 0, Math.PI * 2);
                     ctx.stroke();
                     ctx.beginPath();
-                    ctx.moveTo(baseHeadX, groundLevel - 15);
-                    ctx.lineTo(baseHeadX + 25, groundLevel - 5);
+                    ctx.moveTo(baseHeadX - 10, groundLevel - 5);
+                    ctx.lineTo(baseHeadX + 15, groundLevel - 5);
                     ctx.stroke();
                     return;
                 }
 
-                // 1. Draw Head Circle
                 ctx.beginPath();
                 ctx.arc(baseHeadX, baseHeadY, 12, 0, Math.PI * 2);
                 ctx.stroke();
 
-                // 2. Main Spine Spine line
                 const spineBottomY = baseHeadY + 35;
                 ctx.beginPath();
                 ctx.moveTo(baseHeadX, baseHeadY + 12);
                 ctx.lineTo(baseHeadX, spineBottomY);
                 ctx.stroke();
 
-                // 3. Procedural limbs rendering based on state flags
                 const directionMultiplier = playerKey === 'dharmik' ? 1 : -1;
 
-                // Hands handling
                 ctx.beginPath();
                 if (liveData.actionState === 'punching') {
-                    // Striking extension forward vector path
                     ctx.moveTo(baseHeadX, baseHeadY + 18);
                     ctx.lineTo(baseHeadX + (28 * directionMultiplier), baseHeadY + 18);
                 } else {
-                    // Ready block positioning
                     ctx.moveTo(baseHeadX, baseHeadY + 18);
                     ctx.lineTo(baseHeadX + (12 * directionMultiplier), baseHeadY + 28);
                 }
                 ctx.stroke();
 
-                // Legs handling
                 ctx.beginPath();
                 if (liveData.actionState === 'kicking') {
-                    // High extension strike vector path
                     ctx.moveTo(baseHeadX, spineBottomY);
                     ctx.lineTo(baseHeadX + (30 * directionMultiplier), spineBottomY - 15);
-                    
-                    // Standing leg stability base line
                     ctx.moveTo(baseHeadX, spineBottomY);
                     ctx.lineTo(baseHeadX - (5 * directionMultiplier), groundLevel);
                 } else {
-                    // Default standing position stance vector lines
                     ctx.moveTo(baseHeadX, spineBottomY);
                     ctx.lineTo(baseHeadX - 10, groundLevel);
-                    
                     ctx.moveTo(baseHeadX, spineBottomY);
                     ctx.lineTo(baseHeadX + 10, groundLevel);
                 }
