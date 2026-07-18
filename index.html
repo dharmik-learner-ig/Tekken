@@ -208,7 +208,6 @@
         #hud-p1-name { left: 4px; color: #00f0ff; }
         #hud-p2-name { right: 4px; color: #ff3e6c; }
 
-        /* Game Over Popup styles */
         #gameover-overlay {
             position: absolute;
             top: 0;
@@ -348,7 +347,6 @@
                 </div>
             </div>
 
-            <!-- Game Over Overlay -->
             <div id="gameover-overlay" class="hidden">
                 <div id="outcome-text" class="outcome-title">WIN</div>
                 <button class="menu-btn" id="play-again-btn" onclick="triggerPlayAgain()">PLAY AGAIN</button>
@@ -394,7 +392,6 @@
     let synchronizedLobbyState = {};
     let localVisualDamageTicker = { dharmik: 0, avisha: 0 };
     
-    // Physics variables for local simulation tracking
     let localYPositions = { dharmik: 0, avisha: 0 };
     let localYVelocities = { dharmik: 0, avisha: 0 };
     const gravity = 1.5;
@@ -431,9 +428,12 @@
         if (!clientIdentity) return;
         document.getElementById("play-again-btn").disabled = true;
         
-        const update = {};
-        update[`${clientIdentity}.playAgain`] = true;
-        await setDoc(sessionRoomPath, update, { merge: true });
+        const packagePayload = {};
+        packagePayload[clientIdentity] = {
+            ...synchronizedLobbyState[clientIdentity],
+            playAgain: true
+        };
+        await setDoc(sessionRoomPath, packagePayload, { merge: true });
     }
 
     onSnapshot(sessionRoomPath, async (snapshot) => {
@@ -452,11 +452,12 @@
 
         synchronizedLobbyState = newIncomingState;
         
-        // Handle Game Over Screen Conditions
         const dharmikHealth = synchronizedLobbyState.dharmik?.health ?? 100;
         const avishaHealth = synchronizedLobbyState.avisha?.health ?? 100;
 
-        if (dharmikHealth <= 0 || avishaHealth <= 0) {
+        if ((synchronizedLobbyState.dharmik?.selected && dharmikHealth <= 0) || 
+            (synchronizedLobbyState.avisha?.selected && avishaHealth <= 0)) {
+            
             const overlay = document.getElementById("gameover-overlay");
             const text = document.getElementById("outcome-text");
             overlay.classList.remove("hidden");
@@ -472,10 +473,13 @@
                 }
             }
 
-            // Sync mutual play again requests
-            const p1Ready = synchronizedLobbyState.dharmik?.playAgain;
-            const p2Ready = synchronizedLobbyState.avisha?.playAgain;
-            document.getElementById("ready-status-text").innerText = `Ready Check: (${p1Ready?1:0}/2)`;
+            const p1Ready = synchronizedLobbyState.dharmik?.playAgain || false;
+            const p2Ready = synchronizedLobbyState.avisha?.playAgain || false;
+            
+            let count = 0;
+            if (p1Ready) count++;
+            if (p2Ready) count++;
+            document.getElementById("ready-status-text").innerText = `Ready Check: (${count}/2)`;
 
             if (p1Ready && p2Ready) {
                 overlay.classList.add("hidden");
@@ -488,11 +492,12 @@
                 
                 if (clientIdentity === 'dharmik') {
                     await setDoc(sessionRoomPath, {
-                        dharmik: { selected: false, playAgain: false },
-                        avisha: { selected: false, playAgain: false }
+                        dharmik: { selected: false, playAgain: false, health: 100 },
+                        avisha: { selected: false, playAgain: false, health: 100 }
                     });
-                    clientIdentity = null;
                 }
+                clientIdentity = null;
+                synchronizedLobbyState = {};
             }
         } else {
             document.getElementById("gameover-overlay").classList.add("hidden");
@@ -584,18 +589,15 @@
         });
         window.addEventListener("mouseup", resetJoystick);
 
-        // Core Physics loop
         setInterval(() => {
             if (!clientIdentity) return;
             const currentActorData = synchronizedLobbyState[clientIdentity];
             if (!currentActorData || currentActorData.health <= 0) return;
 
-            // Handle upward jump detection via virtual joystick configuration (-0.5 threshold upward)
             if (joyYOffset < -0.5 && localYPositions[clientIdentity] === 0) {
                 localYVelocities[clientIdentity] = -22; 
             }
 
-            // Apply Gravity physics calculation loop locally
             if (localYPositions[clientIdentity] < 0 || localYVelocities[clientIdentity] !== 0) {
                 localYVelocities[clientIdentity] += gravity;
                 localYPositions[clientIdentity] += localYVelocities[clientIdentity];
@@ -644,7 +646,6 @@
 
             if (!attacker || !target || target.health <= 0) return;
 
-            // Strike distance verification requires hitting matching vertical layout profiles
             const verticalTargetDiff = Math.abs((attacker.posY || 0) - (target.posY || 0));
             if (Math.abs(attacker.posX - target.posX) < 75 && verticalTargetDiff < 50) {
                 const targetNewHealth = Math.max(0, target.health - 7);
@@ -693,7 +694,8 @@
                 const playerY = liveData ? (liveData.posY || 0) : 0;
                 const playerAction = liveData ? liveData.actionState : 'idle';
 
-                document.getElementById(`${playerKey === 'dharmik' ? 'p1' : 'p2'}-health`).style.width = `${playerHealth}%`;
+                const targetHud = document.getElementById(`${playerKey === 'dharmik' ? 'p1' : 'p2'}-health`);
+                if (targetHud) targetHud.style.width = `${playerHealth}%`;
 
                 const baseHeadX = playerX;
                 const baseHeadY = groundLevel - 80 + playerY;
