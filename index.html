@@ -174,7 +174,7 @@
             left: 0;
             width: 100%;
             display: flex;
-            justify-content: space-between;
+            justify(content: space-between);
             padding: 0 20px;
             z-index: 5;
         }
@@ -387,19 +387,21 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+    // Updated Firebase configuration snippet from your image
     const firebaseConfig = {
-      apiKey: "AIzaSyDKiDtpmLmnGrvpTwXJfpJyHY-t88Q7UVI",
-      authDomain: "tekken-1deb0.firebaseapp.com",
-      projectId: "tekken-1deb0",
-      storageBucket: "tekken-1deb0.firebasestorage.app",
-      messagingSenderId: "1022707172568",
-      appId: "1:1022707172568:web:ca13aac471e3b4450fc3ad",
-      measurementId: "G-0SKKEGP2JV"
+      apiKey: "AIzaSyAIKXMt1f9qWkqsjueJREC11Tq9bEJxwOQ",
+      authDomain: "tekken-backup.firebaseapp.com",
+      databaseURL: "https://tekken-backup-default-rtdb.firebaseio.com",
+      projectId: "tekken-backup",
+      storageBucket: "tekken-backup.firebasestorage.app",
+      messagingSenderId: "974619020042",
+      appId: "1:974619020042:web:c813a659881456df1608f3",
+      measurementId: "G-WTG014F872"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const sessionRoomPath = doc(db, "gameRooms", "global-fight-match-v2");
+    const sessionRoomPath = doc(db, "gameRooms", "global-fight-match");
 
     let clientIdentity = null;
     let synchronizedLobbyState = {};
