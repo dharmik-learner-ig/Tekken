@@ -174,7 +174,7 @@
             left: 0;
             width: 100%;
             display: flex;
-            justify(content: space-between);
+            justify-content: space-between;
             padding: 0 20px;
             z-index: 5;
         }
@@ -387,7 +387,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-    // Updated Firebase configuration snippet from your image
     const firebaseConfig = {
       apiKey: "AIzaSyAIKXMt1f9qWkqsjueJREC11Tq9bEJxwOQ",
       authDomain: "tekken-backup.firebaseapp.com",
@@ -407,9 +406,14 @@
     let synchronizedLobbyState = {};
     let localVisualDamageTicker = { dharmik: 0, avisha: 0 };
     
+    // Normal, balanced physics variables (Not fast)
+    let renderPositionsX = { dharmik: 80, avisha: 260 };
     let renderPositionsY = { dharmik: 0, avisha: 0 };
     let renderVelocitiesY = { dharmik: 0, avisha: 0 };
-    const gravity = 1.5;
+    let localActionStates = { dharmik: 'idle', avisha: 'idle' };
+    const gravity = 0.8;
+    const movementSpeed = 4.5; 
+    const jumpForce = -13;
 
     let activeProjectiles = [];
 
@@ -427,11 +431,14 @@
         }
         document.getElementById("status-message").innerText = "Linked! Waiting for player 2...";
         
+        renderPositionsX = { dharmik: 80, avisha: 260 };
+        renderPositionsY = { dharmik: 0, avisha: 0 };
+        
         const packagePayload = {};
         packagePayload[clientIdentity] = {
             selected: true,
             health: 100,
-            posX: clientIdentity === 'dharmik' ? 80 : 260,
+            posX: renderPositionsX[clientIdentity],
             posY: 0,
             actionState: 'idle',
             lastUpdated: Date.now()
@@ -465,6 +472,7 @@
         synchronizedLobbyState = {};
         renderPositionsY = { dharmik: 0, avisha: 0 };
         renderVelocitiesY = { dharmik: 0, avisha: 0 };
+        renderPositionsX = { dharmik: 80, avisha: 260 };
         activeProjectiles = [];
     }
 
@@ -478,13 +486,19 @@
                 localVisualDamageTicker[key] = 8;
             }
             
-            if (key !== clientIdentity && newIncomingState[key] && newIncomingState[key].actionState === 'jumping' && renderPositionsY[key] === 0) {
-                renderVelocitiesY[key] = -22;
-            }
+            // Sync remote opponent properties instantly without rubber-banding
+            if (key !== clientIdentity && newIncomingState[key]) {
+                renderPositionsX[key] = newIncomingState[key].posX;
+                localActionStates[key] = newIncomingState[key].actionState;
+                
+                if (newIncomingState[key].actionState === 'jumping' && renderPositionsY[key] === 0) {
+                    renderVelocitiesY[key] = jumpForce;
+                }
 
-            if (key !== clientIdentity && newIncomingState[key] && newIncomingState[key].actionState === 'shooting') {
-                if (!synchronizedLobbyState[key] || synchronizedLobbyState[key].actionState !== 'shooting') {
-                    spawnProjectile(key, newIncomingState[key].posX, renderPositionsY[key]);
+                if (newIncomingState[key].actionState === 'shooting') {
+                    if (!synchronizedLobbyState[key] || synchronizedLobbyState[key].actionState !== 'shooting') {
+                        spawnProjectile(key, newIncomingState[key].posX, renderPositionsY[key]);
+                    }
                 }
             }
         });
@@ -558,7 +572,7 @@
             owner: owner,
             x: startX + (30 * direction),
             y: startY,
-            speed: 12 * direction,
+            speed: 8 * direction, // Decreased ball speed to look normal
             type: owner === 'dharmik' ? 'water' : 'fire',
             active: true
         });
@@ -614,7 +628,10 @@
             joyXOffset = 0;
             joyYOffset = 0;
             joyKnob.style.transform = 'translate(0px, 0px)';
-            sendMovementUpdate('idle');
+            if (clientIdentity && synchronizedLobbyState[clientIdentity]?.health > 0) {
+                localActionStates[clientIdentity] = 'idle';
+                sendCloudStatePatch();
+            }
         }
 
         joyContainer.addEventListener("touchstart", (e) => {
@@ -639,58 +656,78 @@
         });
         window.addEventListener("mouseup", resetJoystick);
 
+        // Instant local movement calculation loop to completely remove controller response delay
         setInterval(() => {
             if (!clientIdentity || synchronizedLobbyState.rematchPending) return;
             const currentActorData = synchronizedLobbyState[clientIdentity];
             if (!currentActorData || currentActorData.health <= 0) return;
 
-            if (currentActorData.actionState === 'shooting') return;
+            if (localActionStates[clientIdentity] === 'shooting') return;
 
-            let forceJumpStateTrigger = false;
             if (joyYOffset < -0.5 && renderPositionsY[clientIdentity] === 0) {
-                renderVelocitiesY[clientIdentity] = -22; 
-                forceJumpStateTrigger = true;
+                renderVelocitiesY[clientIdentity] = jumpForce; 
+                localActionStates[clientIdentity] = 'jumping';
             }
 
-            let updatedX = currentActorData.posX + (joyXOffset * 10);
-            updatedX = Math.max(20, Math.min(canvas.width - 40, updatedX));
+            // Normal smooth running speed implementation
+            renderPositionsX[clientIdentity] += (joyXOffset * movementSpeed);
+            renderPositionsX[clientIdentity] = Math.max(20, Math.min(canvas.width - 40, renderPositionsX[clientIdentity]));
+
+            if (renderPositionsY[clientIdentity] < 0) {
+                localActionStates[clientIdentity] = 'jumping';
+            } else if (joystickActive && localActionStates[clientIdentity] !== 'jumping') {
+                localActionStates[clientIdentity] = 'walking';
+            } else if (!joystickActive && localActionStates[clientIdentity] !== 'jumping') {
+                localActionStates[clientIdentity] = 'idle';
+            }
+
+            sendCloudStatePatch();
+        }, 1000 / 60); // Calculates at locked 60 FPS locally
+
+        // Blazes network updates at throttled frames to avoid database locking delays
+        let lastCloudUpdate = 0;
+        function sendCloudStatePatch() {
+            const now = Date.now();
+            if (now - lastCloudUpdate < 45) return; // Throttles write triggers to clear device lag
+            lastCloudUpdate = now;
 
             const inputStatePatch = {};
-            inputStatePatch[`${clientIdentity}.posX`] = updatedX;
+            inputStatePatch[`${clientIdentity}.posX`] = renderPositionsX[clientIdentity];
             inputStatePatch[`${clientIdentity}.posY`] = renderPositionsY[clientIdentity];
-            inputStatePatch[`${clientIdentity}.actionState`] = forceJumpStateTrigger || renderPositionsY[clientIdentity] < 0 ? 'jumping' : (joystickActive ? 'walking' : 'idle');
-            inputStatePatch[`${clientIdentity}.lastUpdated`] = Date.now();
+            inputStatePatch[`${clientIdentity}.actionState`] = localActionStates[clientIdentity];
+            inputStatePatch[`${clientIdentity}.lastUpdated`] = now;
             
             updateDoc(sessionRoomPath, inputStatePatch);
-        }, 30);
+        }
 
-        function sendMovementUpdate(actionState) {
+        function triggerActionState(actionState) {
             if (!clientIdentity || synchronizedLobbyState.rematchPending) return;
             const currentActorData = synchronizedLobbyState[clientIdentity];
             if (!currentActorData || currentActorData.health <= 0) return;
 
+            localActionStates[clientIdentity] = actionState;
+            
+            // Push instantly to cloud package
             const inputStatePatch = {};
             inputStatePatch[`${clientIdentity}.actionState`] = actionState;
             inputStatePatch[`${clientIdentity}.lastUpdated`] = Date.now();
-            
             updateDoc(sessionRoomPath, inputStatePatch);
             
             if (actionState === 'punching' || actionState === 'kicking') {
                 evaluateStrikeHitbox();
             } else if (actionState === 'shooting') {
-                spawnProjectile(clientIdentity, currentActorData.posX, renderPositionsY[clientIdentity]);
+                spawnProjectile(clientIdentity, renderPositionsX[clientIdentity], renderPositionsY[clientIdentity]);
             }
         }
 
         function evaluateStrikeHitbox() {
             const opposingTargetKey = clientIdentity === 'dharmik' ? 'avisha' : 'dharmik';
-            const attacker = synchronizedLobbyState[clientIdentity];
             const target = synchronizedLobbyState[opposingTargetKey];
 
-            if (!attacker || !target || target.health <= 0) return;
+            if (!target || target.health <= 0) return;
 
             const verticalTargetDiff = Math.abs(renderPositionsY[clientIdentity] - renderPositionsY[opposingTargetKey]);
-            if (Math.abs(attacker.posX - target.posX) < 75 && verticalTargetDiff < 50) {
+            if (Math.abs(renderPositionsX[clientIdentity] - renderPositionsX[opposingTargetKey]) < 75 && verticalTargetDiff < 50) {
                 const targetNewHealth = Math.max(0, target.health - 7);
                 const matchDamageUpdate = {};
                 matchDamageUpdate[`${opposingTargetKey}.health`] = targetNewHealth;
@@ -704,21 +741,22 @@
 
             btnTarget.addEventListener("touchstart", (e) => { 
                 e.preventDefault(); 
-                sendMovementUpdate(actionKey === 'Punch' ? 'punching' : (actionKey === 'Kick' ? 'kicking' : 'shooting')); 
+                triggerActionState(actionKey === 'Punch' ? 'punching' : (actionKey === 'Kick' ? 'kicking' : 'shooting')); 
             });
             btnTarget.addEventListener("touchend", (e) => { 
                 e.preventDefault(); 
-                sendMovementUpdate('idle'); 
+                triggerActionState('idle'); 
             });
             btnTarget.addEventListener("mousedown", () => {
-                sendMovementUpdate(actionKey === 'Punch' ? 'punching' : (actionKey === 'Kick' ? 'kicking' : 'shooting'));
+                triggerActionState(actionKey === 'Punch' ? 'punching' : (actionKey === 'Kick' ? 'kicking' : 'shooting'));
             });
-            btnTarget.addEventListener("mouseup", () => sendMovementUpdate('idle'));
+            btnTarget.addEventListener("mouseup", () => triggerActionState('idle'));
         });
 
         function runLocalRenderLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Normal jumping mechanics
             ['dharmik', 'avisha'].forEach(key => {
                 if (renderPositionsY[key] < 0 || renderVelocitiesY[key] !== 0) {
                     renderVelocitiesY[key] += gravity;
@@ -727,6 +765,9 @@
                     if (renderPositionsY[key] >= 0) {
                         renderPositionsY[key] = 0;
                         renderVelocitiesY[key] = 0;
+                        if (localActionStates[key] === 'jumping') {
+                            localActionStates[key] = 'idle';
+                        }
                     }
                 }
             });
@@ -776,17 +817,16 @@
 
                 if (proj.owner === clientIdentity) {
                     const targetKey = clientIdentity === 'dharmik' ? 'avisha' : 'dharmik';
-                    const enemyData = synchronizedLobbyState[targetKey];
                     
-                    if (enemyData && enemyData.health > 0) {
+                    if (synchronizedLobbyState[targetKey] && synchronizedLobbyState[targetKey].health > 0) {
                         const targetY = renderPositionsY[targetKey];
-                        const horizontalDist = Math.abs(proj.x - enemyData.posX);
+                        const horizontalDist = Math.abs(proj.x - renderPositionsX[targetKey]);
                         const verticalDist = Math.abs(proj.y - targetY);
 
                         if (horizontalDist < 35 && verticalDist < 50) {
                             proj.active = false; 
                             
-                            const nextHealthValue = Math.max(0, enemyData.health - 12); 
+                            const nextHealthValue = Math.max(0, synchronizedLobbyState[targetKey].health - 12); 
                             const stateDamagePatch = {};
                             stateDamagePatch[`${targetKey}.health`] = nextHealthValue;
                             updateDoc(sessionRoomPath, stateDamagePatch);
@@ -802,9 +842,9 @@
                 const layout = entities[playerKey];
 
                 const playerHealth = (liveData && typeof liveData.health !== 'undefined') ? liveData.health : 100;
-                const playerX = liveData ? liveData.posX : (playerKey === 'dharmik' ? 80 : 260);
+                const playerX = renderPositionsX[playerKey];
                 const playerY = renderPositionsY[playerKey]; 
-                const playerAction = liveData ? liveData.actionState : 'idle';
+                const playerAction = localActionStates[playerKey];
 
                 const targetHud = document.getElementById(`${playerKey === 'dharmik' ? 'p1' : 'p2'}-health`);
                 if (targetHud) targetHud.style.width = `${playerHealth}%`;
