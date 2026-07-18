@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Retro Fighter: Dharmik vs Avisha</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Forces mobile screen optimization and prevents scrolling artifacts */
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a12;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Seamless Mobile Portrait Aspect Enforcer */
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            max-width: 480px;
+            max-height: 920px;
+            background: #141424;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Screens Management */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            z-index: 10;
+            background: radial-gradient(circle at center, #1a1a30 0%, #0d0d18 100%);
+        }
+        .hidden { display: none !important; }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-align: center;
+            margin-bottom: 8px;
+            background: linear-gradient(45deg, #00f0ff, #ff3e6c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+
+        .subtitle-text {
+            color: #79799c;
+            font-size: 14px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        /* Dynamic Character Cards Grid */
+        .char-grid {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+        .char-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            padding: 24px 16px;
+            border-radius: 16px;
+            cursor: pointer;
+            width: 150px;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Dynamic Identity Glow Rulesets */
+        #card-dharmik.selected {
+            border-color: #00f0ff;
+            background: rgba(0, 240, 255, 0.08);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.3);
+            transform: translateY(-5px);
+        }
+        #card-avisha.selected {
+            border-color: #ff3e6c;
+            background: rgba(255, 62, 108, 0.08);
+            box-shadow: 0 0 25px rgba(255, 62, 108, 0.3);
+            transform: translateY(-5px);
+        }
+        
+        .char-avatar {
+            font-size: 56px;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        }
+        .char-name {
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: 0.5px;
+        }
+        .char-subtitle {
+            font-size: 12px;
+            color: #6a6a8a;
+            margin-top: 4px;
+        }
+        
+        .menu-btn {
+            background: linear-gradient(90deg, #ff3e6c, #e43f5a);
+            color: #fff;
+            border: none;
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(228, 63, 90, 0.3);
+            transition: all 0.2s;
+        }
+        .menu-btn:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+        #status-message {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #00f0ff;
+            min-height: 20px;
+            font-family: monospace;
+        }
+
+        /* Core Battle Layout Screen */
+        #battle-screen {
+            background: #05050a;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            padding: 0;
+        }
+
+        /* Responsive Viewport */
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            background: #090910;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Sleek Modern HUD Bar Overlays */
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 5;
+        }
+        .health-bar-container {
+            width: 44%;
+            background: rgba(255, 255, 255, 0.1);
+            height: 14px;
+            border-radius: 7px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(4px);
+        }
+        .health-fill {
+            height: 100%;
+            width: 100%;
+            transition: width 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #p1-health {
+            background: linear-gradient(90deg, #00bfff, #00f0ff);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+        }
+        #p2-health {
+            background: linear-gradient(90deg, #ff3e6c, #ff7697);
+            box-shadow: 0 0 10px rgba(255, 62, 108, 0.5);
+        }
+        .hud-name {
+            position: absolute;
+            top: -20px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        #hud-p1-name { left: 4px; color: #00f0ff; }
+        #hud-p2-name { right: 4px; color: #ff3e6c; }
+
+        /* Dynamic Touch Controller Dashboard Overlay */
+        #controller-overlay {
+            width: 100%;
+            height: 260px;
+            background: #181826;
+            border-top: 2px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            padding-bottom: env(safe-area-inset-bottom, 15px);
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Premium Mechanical Touch D-PAD */
+        .dpad {
+            position: relative;
+            width: 130px;
+            height: 130px;
+        }
+        .dpad-btn {
+            position: absolute;
+            background: #252538;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.1s ease;
+        }
+        /* Dynamic D-pad Glow Actions */
+        .dpad-btn:active {
+            background: #2a2a44;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
+        }
+        .dpad-left { top: 45px; left: 0; width: 45px; height: 40px; }
+        .dpad-right { top: 45px; right: 0; width: 45px; height: 40px; }
+        .dpad-up { top: 0; left: 45px; width: 40px; height: 45px; }
+        .dpad-center {
+            top: 45px; left: 45px; width: 40px; height: 40px;
+            background: #1f1f30; pointer-events: none;
+        }
+
+        /* Premium Action Control Clusters */
+        .action-cluster {
+            display: flex;
+            gap: 20px;
+        }
+        .action-btn {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            color: white;
+            font-weight: 800;
+            font-size: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        
+        /* Specific Action Button Identity Highlights */
+        .punch-btn {
+            background: linear-gradient(145deg, #2b2b40, #1e1e2d);
+            border: 2px solid #00f0ff;
+        }
+        .punch-btn:active {
+            transform: scale(0.92);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+            background: #00f0ff;
+            color: #111;
+        }
+        
+        .kick-btn {
+            background: linear-gradient(145deg, #2b2b40, #1e1e2d);
+            border: 2px solid #ff3e6c;
+        }
+        .kick-btn:active {
+            transform: scale(0.92);
+            box-shadow: 0 0 20px rgba(255, 62, 108, 0.6);
+            background: #ff3e6c;
+            color: #111;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+
+    <!-- Screen 1: Lobby Menu Layer -->
+    <div id="lobby-screen" class="screen">
+        <h1>TEKKEN RETRO 2D</h1>
+        <div class="subtitle-text">Dynamic Multi-Device Edition</div>
+        
+        <div class="char-grid">
+            <div class="char-card" id="card-dharmik" onclick="selectProfile('dharmik')">
+                <div class="char-avatar">🥷</div>
+                <div class="char-name">Dharmik</div>
+                <div class="char-subtitle">Neon Ninja</div>
+            </div>
+            <div class="char-card" id="card-avisha" onclick="selectProfile('avisha')">
+                <div class="char-avatar">👩‍🎤</div>
+                <div class="char-name">Avisha</div>
+                <div class="char-subtitle">Crimson Fury</div>
+            </div>
+        </div>
+
+        <button class="menu-btn" id="start-match-btn" onclick="lockSelection()">LOCK IN SELECTION</button>
+        <div id="status-message">Awaiting cloud connection room setup...</div>
+    </div>
+
+    <!-- Screen 2: Battle Arena Canvas Window -->
+    <div id="battle-screen" class="screen hidden">
+        <div id="canvas-wrapper">
+            <div class="hud">
+                <div class="health-bar-container">
+                    <div id="hud-p1-name" class="hud-name">Dharmik</div>
+                    <div id="p1-health" class="health-fill"></div>
+                </div>
+                <div class="health-bar-container">
+                    <div id="hud-p2-name" class="hud-name">Avisha</div>
+                    <div id="p2-health" class="health-fill" style="float: right;"></div>
+                </div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <!-- Custom Interactive Remote Control Overlay -->
+        <div id="controller-overlay">
+            <div class="dpad">
+                <div class="dpad-btn dpad-left" id="ctrl-left" data-key="Left"></div>
+                <div class="dpad-btn dpad-right" id="ctrl-right" data-key="Right"></div>
+                <div class="dpad-btn dpad-up" id="ctrl-up" data-key="Up"></div>
+                <div class="dpad-center"></div>
+            </div>
+
+            <div class="action-cluster">
+                <div class="action-btn punch-btn" id="ctrl-punch" data-key="Punch">P</div>
+                <div class="action-btn kick-btn" id="ctrl-kick" data-key="Kick">K</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Realtime Multi-Client Database Orchestration Script -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDKiDtpmLmnGrvpTwXJfpJyHY-t88Q7UVI",
+      authDomain: "tekken-1deb0.firebaseapp.com",
+      projectId: "tekken-1deb0",
+      storageBucket: "tekken-1deb0.firebasestorage.app",
+      messagingSenderId: "1022707172568",
+      appId: "1:1022707172568:web:ca13aac471e3b4450fc3ad",
+      measurementId: "G-0SKKEGP2JV"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const sessionRoomPath = doc(db, "gameRooms", "global-fight-match");
+
+    let clientIdentity = null;
+    let synchronizedLobbyState = {};
+    let localVisualDamageTicker = { dharmik: 0, avisha: 0 };
+
+    window.selectProfile = function(profileKey) {
+        document.getElementById("card-dharmik").classList.remove("selected");
+        document.getElementById("card-avisha").classList.remove("selected");
+        document.getElementById(`card-${profileKey}`).classList.add("selected");
+        clientIdentity = profileKey;
+    }
+
+    window.lockSelection = async function() {
+        if (!clientIdentity) {
+            document.getElementById("status-message").innerText = "Choose your character slot first!";
+            return;
+        }
+        document.getElementById("status-message").innerText = "Linked! Waiting for player 2...";
+        
+        const packagePayload = {};
+        packagePayload[clientIdentity] = {
+            selected: true,
+            health: 100,
+            posX: clientIdentity === 'dharmik' ? 60 : 260,
+            actionState: 'idle',
+            lastUpdated: Date.now()
+        };
+
+        try {
+            await updateDoc(sessionRoomPath, packagePayload);
+        } catch(err) {
+            await setDoc(sessionRoomPath, packagePayload, { merge: true });
+        }
+    }
+
+    // Dynamic Database Synchronization Updates Engine hook 
+    onSnapshot(sessionRoomPath, (snapshot) => {
+        if (!snapshot.exists()) {
+            document.getElementById("status-message").innerText = "Online. Choose a profile module slot.";
+            return;
+        }
+        
+        const newIncomingState = snapshot.data();
+        
+        // Dynamic Flash Tracker on Damage changes
+        ['dharmik', 'avisha'].forEach(key => {
+            if (synchronizedLobbyState[key] && newIncomingState[key] && newIncomingState[key].health < synchronizedLobbyState[key].health) {
+                localVisualDamageTicker[key] = 8; // Trigger 8 frames of color invert flashing
+            }
+        });
+
+        synchronizedLobbyState = newIncomingState;
+        
+        if (synchronizedLobbyState.dharmik?.selected && synchronizedLobbyState.avisha?.selected) {
+            if (document.getElementById("battle-screen").classList.contains("hidden")) {
+                transitionToCombatLoop();
+            }
+        }
+    });
+
+    function transitionToCombatLoop() {
+        document.getElementById("lobby-screen").classList.add("hidden");
+        document.getElementById("battle-screen").classList.remove("hidden");
+        initCombatGraphicsEngine();
+    }
+
+    function initCombatGraphicsEngine() {
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Scale setup exactly for high density mobile frames dynamically
+        function resizeGameWindow() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        resizeGameWindow();
+        window.addEventListener('resize', resizeGameWindow);
+
+        const groundLevel = canvas.height - 30;
+
+        const entities = {
+            dharmik: { color: "#00f0ff", avatar: "🥷", width: 55, height: 95 },
+            avisha: { color: "#ff3e6c", avatar: "👩‍🎤", width: 55, height: 95 }
+        };
+
+        function handleControlState(actionKey, isActive) {
+            if (!clientIdentity) return;
+            
+            const currentActorData = synchronizedLobbyState[clientIdentity];
+            if (!currentActorData || currentActorData.health <= 0) return;
+
+            let updatedX = currentActorData.posX;
+            let currentStatus = 'idle';
+
+            if (actionKey === 'Left' && isActive) {
+                updatedX = Math.max(5, updatedX - 15);
+                currentStatus = 'walking';
+            }
+            if (actionKey === 'Right' && isActive) {
+                updatedX = Math.min(canvas.width - 60, updatedX + 15);
+                currentStatus = 'walking';
+            }
+            if (actionKey === 'Punch' && isActive) {
+                currentStatus = 'punching';
+                evaluateStrikeHitbox();
+            }
+            if (actionKey === 'Kick' && isActive) {
+                currentStatus = 'kicking';
+                evaluateStrikeHitbox();
+            }
+
+            const inputStatePatch = {};
+            inputStatePatch[clientIdentity] = {
+                ...currentActorData,
+                posX: updatedX,
+                actionState: currentStatus,
+                lastUpdated: Date.now()
+            };
+            
+            updateDoc(sessionRoomPath, inputStatePatch);
+        }
+
+        function evaluateStrikeHitbox() {
+            const opposingTargetKey = clientIdentity === 'dharmik' ? 'avisha' : 'dharmik';
+            const attacker = synchronizedLobbyState[clientIdentity];
+            const target = synchronizedLobbyState[opposingTargetKey];
+
+            if (!attacker || !target || target.health <= 0) return;
+
+            const absoluteRange = Math.abs(attacker.posX - target.posX);
+            if (absoluteRange < 85) {
+                const targetNewHealth = Math.max(0, target.health - 7);
+                const matchDamageUpdate = {};
+                matchDamageUpdate[opposingTargetKey] = {
+                    ...target,
+                    health: targetNewHealth
+                };
+                updateDoc(sessionRoomPath, matchDamageUpdate);
+            }
+        }
+
+        // Setup Mobile Touch Events Handling cleanly with preventDefaults
+        ['ctrl-left', 'ctrl-right', 'ctrl-up', 'ctrl-punch', 'ctrl-kick'].forEach(elemId => {
+            const btnTarget = document.getElementById(elemId);
+            const actionKey = btnTarget.getAttribute("data-key");
+
+            btnTarget.addEventListener("touchstart", (e) => { e.preventDefault(); handleControlState(actionKey, true); }, {passive: false});
+            btnTarget.addEventListener("touchend", (e) => { e.preventDefault(); handleControlState(actionKey, false); }, {passive: false});
+            
+            // Fallbacks for browser window debugging
+            btnTarget.addEventListener("mousedown", () => handleControlState(actionKey, true));
+            btnTarget.addEventListener("mouseup", () => handleControlState(actionKey, false));
+        });
+
+        // Frame rendering cycle
+        function runLocalRenderLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Dynamic Arena Background gradient based on current hit states
+            let backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            if (localVisualDamageTicker.dharmik > 0 || localVisualDamageTicker.avisha > 0) {
+                backgroundGradient.addColorStop(0, '#3a1520');
+                backgroundGradient.addColorStop(1, '#0d0d18');
+            } else {
+                backgroundGradient.addColorStop(0, '#141428');
+                backgroundGradient.addColorStop(1, '#080811');
+            }
+            ctx.fillStyle = backgroundGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Ground drawing
+            ctx.fillStyle = "#22223b";
+            ctx.fillRect(0, groundLevel, canvas.width, canvas.height - groundLevel);
+
+            // Render characters dynamic parameters loops
+            ['dharmik', 'avisha'].forEach(playerKey => {
+                const liveData = synchronizedLobbyState[playerKey];
+                const layout = entities[playerKey];
+
+                if (!liveData) return;
+
+                document.getElementById(`${playerKey === 'dharmik' ? 'p1' : 'p2'}-health`).style.width = `${liveData.health}%`;
+
+                const charY = groundLevel - layout.height;
+
+                // Color Flashing engine logic when damage is intercepted
+                if (localVisualDamageTicker[playerKey] > 0) {
+                    ctx.fillStyle = "#ffffff";
+                    localVisualDamageTicker[playerKey]--;
+                } else {
+                    ctx.fillStyle = layout.color;
+                }
+
+                // Smooth round rect for capsules
+                ctx.beginPath();
+                ctx.roundRect(liveData.posX, charY, layout.width, layout.height, 12);
+                ctx.fill();
+
+                // Neon structural indicator lines around active objects
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Visual Action Extension Overlays
+                if (liveData.actionState === 'punching') {
+                    ctx.fillStyle = "#00f0ff";
+                    ctx.fillRect(playerKey === 'dharmik' ? liveData.posX + layout.width : liveData.posX - 25, charY + 25, 25, 12);
+                } else if (liveData.actionState === 'kicking') {
+                    ctx.fillStyle = "#ff3e6c";
+                    ctx.fillRect(playerKey === 'dharmik' ? liveData.posX + layout.width : liveData.posX - 30, charY + 50, 30, 15);
+                }
+
+                // Place Identity Character Models inside
+                ctx.font = "36px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(layout.avatar, liveData.posX + (layout.width / 2), charY + 58);
+
+                if (liveData.health <= 0) {
+                    ctx.fillStyle = "#ff3e6c";
+                    ctx.font = "bold 16px monospace";
+                    ctx.fillText("KO", liveData.posX + (layout.width / 2), charY - 15);
+                }
+            });
+
+            requestAnimationFrame(runLocalRenderLoop);
+        }
+        requestAnimationFrame(runLocalRenderLoop);
+    }
+</script>
+
+</body>
+</html>
