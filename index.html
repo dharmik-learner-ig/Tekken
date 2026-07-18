@@ -372,7 +372,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDKiDtpmLmnGrvpTwXJfpJyHY-t88Q7UVI",
@@ -417,9 +417,9 @@
             posX: clientIdentity === 'dharmik' ? 80 : 260,
             posY: 0,
             actionState: 'idle',
-            playAgain: false,
             lastUpdated: Date.now()
         };
+        packagePayload[`ready_${clientIdentity}`] = false; 
 
         await setDoc(sessionRoomPath, packagePayload, { merge: true });
     }
@@ -428,12 +428,22 @@
         if (!clientIdentity) return;
         document.getElementById("play-again-btn").disabled = true;
         
-        const packagePayload = {};
-        packagePayload[clientIdentity] = {
-            ...synchronizedLobbyState[clientIdentity],
-            playAgain: true
-        };
-        await setDoc(sessionRoomPath, packagePayload, { merge: true });
+        const readyUpdate = {};
+        readyUpdate[`ready_${clientIdentity}`] = true;
+        await updateDoc(sessionRoomPath, readyUpdate);
+    }
+
+    function resetLocalUIAndLobby() {
+        document.getElementById("gameover-overlay").classList.add("hidden");
+        document.getElementById("play-again-btn").disabled = false;
+        document.getElementById("battle-screen").classList.add("hidden");
+        document.getElementById("lobby-screen").classList.remove("hidden");
+        document.getElementById("status-message").innerText = "Choose character to start a fresh battle!";
+        document.getElementById("card-dharmik").classList.remove("selected");
+        document.getElementById("card-avisha").classList.remove("selected");
+        
+        clientIdentity = null;
+        synchronizedLobbyState = {};
     }
 
     onSnapshot(sessionRoomPath, async (snapshot) => {
@@ -455,6 +465,11 @@
         const dharmikHealth = synchronizedLobbyState.dharmik?.health ?? 100;
         const avishaHealth = synchronizedLobbyState.avisha?.health ?? 100;
 
+        if (synchronizedLobbyState.dharmik?.selected === false && synchronizedLobbyState.avisha?.selected === false && clientIdentity) {
+            resetLocalUIAndLobby();
+            return;
+        }
+
         if ((synchronizedLobbyState.dharmik?.selected && dharmikHealth <= 0) || 
             (synchronizedLobbyState.avisha?.selected && avishaHealth <= 0)) {
             
@@ -473,8 +488,8 @@
                 }
             }
 
-            const p1Ready = synchronizedLobbyState.dharmik?.playAgain || false;
-            const p2Ready = synchronizedLobbyState.avisha?.playAgain || false;
+            const p1Ready = synchronizedLobbyState.ready_dharmik || false;
+            const p2Ready = synchronizedLobbyState.ready_avisha || false;
             
             let count = 0;
             if (p1Ready) count++;
@@ -482,22 +497,14 @@
             document.getElementById("ready-status-text").innerText = `Ready Check: (${count}/2)`;
 
             if (p1Ready && p2Ready) {
-                overlay.classList.add("hidden");
-                document.getElementById("play-again-btn").disabled = false;
-                document.getElementById("battle-screen").classList.add("hidden");
-                document.getElementById("lobby-screen").classList.remove("hidden");
-                document.getElementById("status-message").innerText = "Choose character to start a fresh battle!";
-                document.getElementById("card-dharmik").classList.remove("selected");
-                document.getElementById("card-avisha").classList.remove("selected");
+                await setDoc(sessionRoomPath, {
+                    dharmik: { selected: false, health: 100, posX: 80, posY: 0, actionState: 'idle' },
+                    avisha: { selected: false, health: 100, posX: 260, posY: 0, actionState: 'idle' },
+                    ready_dharmik: false,
+                    ready_avisha: false
+                });
                 
-                if (clientIdentity === 'dharmik') {
-                    await setDoc(sessionRoomPath, {
-                        dharmik: { selected: false, playAgain: false, health: 100 },
-                        avisha: { selected: false, playAgain: false, health: 100 }
-                    });
-                }
-                clientIdentity = null;
-                synchronizedLobbyState = {};
+                resetLocalUIAndLobby();
             }
         } else {
             document.getElementById("gameover-overlay").classList.add("hidden");
