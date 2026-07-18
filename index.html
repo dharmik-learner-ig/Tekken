@@ -392,8 +392,9 @@
     let synchronizedLobbyState = {};
     let localVisualDamageTicker = { dharmik: 0, avisha: 0 };
     
-    let localYPositions = { dharmik: 0, avisha: 0 };
-    let localYVelocities = { dharmik: 0, avisha: 0 };
+    // Track positions locally on both clients to bypass network lag updates
+    let renderPositionsY = { dharmik: 0, avisha: 0 };
+    let renderVelocitiesY = { dharmik: 0, avisha: 0 };
     const gravity = 1.5;
 
     window.selectProfile = function(profileKey) {
@@ -420,6 +421,7 @@
             lastUpdated: Date.now()
         };
         packagePayload[`ready_${clientIdentity}`] = false; 
+        packagePayload["rematchPending"] = false;
 
         await setDoc(sessionRoomPath, packagePayload, { merge: true });
     }
@@ -430,6 +432,7 @@
         
         const readyUpdate = {};
         readyUpdate[`ready_${clientIdentity}`] = true;
+        readyUpdate["rematchPending"] = true;
         await updateDoc(sessionRoomPath, readyUpdate);
     }
 
@@ -444,6 +447,8 @@
         
         clientIdentity = null;
         synchronizedLobbyState = {};
+        renderPositionsY = { dharmik: 0, avisha: 0 };
+        renderVelocitiesY = { dharmik: 0, avisha: 0 };
     }
 
     onSnapshot(sessionRoomPath, async (snapshot) => {
@@ -455,8 +460,10 @@
             if (synchronizedLobbyState[key] && newIncomingState[key] && newIncomingState[key].health < synchronizedLobbyState[key].health) {
                 localVisualDamageTicker[key] = 8;
             }
-            if (newIncomingState[key]) {
-                localYPositions[key] = newIncomingState[key].posY || 0;
+            
+            // Trigger local physics engine jump pulse when the network signals a remote jump action
+            if (key !== clientIdentity && newIncomingState[key] && newIncomingState[key].actionState === 'jumping' && renderPositionsY[key] === 0) {
+                renderVelocitiesY[key] = -22;
             }
         });
 
@@ -465,13 +472,14 @@
         const dharmikHealth = synchronizedLobbyState.dharmik?.health ?? 100;
         const avishaHealth = synchronizedLobbyState.avisha?.health ?? 100;
 
-        if (synchronizedLobbyState.dharmik?.selected === false && synchronizedLobbyState.avisha?.selected === false && clientIdentity) {
+        if (synchronizedLobbyState.dharmik?.selected === false && synchronizedLobbyState.avisha?.selected === false && !synchronizedLobbyState.rematchPending && clientIdentity) {
             resetLocalUIAndLobby();
             return;
         }
 
         if ((synchronizedLobbyState.dharmik?.selected && dharmikHealth <= 0) || 
-            (synchronizedLobbyState.avisha?.selected && avishaHealth <= 0)) {
+            (synchronizedLobbyState.avisha?.selected && avishaHealth <= 0) || 
+            synchronizedLobbyState.rematchPending) {
             
             const overlay = document.getElementById("gameover-overlay");
             const text = document.getElementById("outcome-text");
@@ -501,16 +509,15 @@
                     dharmik: { selected: false, health: 100, posX: 80, posY: 0, actionState: 'idle' },
                     avisha: { selected: false, health: 100, posX: 260, posY: 0, actionState: 'idle' },
                     ready_dharmik: false,
-                    ready_avisha: false
+                    ready_avisha: false,
+                    rematchPending: false
                 });
-                
-                resetLocalUIAndLobby();
             }
         } else {
             document.getElementById("gameover-overlay").classList.add("hidden");
         }
         
-        if (synchronizedLobbyState.dharmik?.selected && synchronizedLobbyState.avisha?.selected) {
+        if (synchronizedLobbyState.dharmik?.selected && synchronizedLobbyState.avisha?.selected && !synchronizedLobbyState.rematchPending) {
             if (document.getElementById("battle-screen").classList.contains("hidden")) {
                 transitionToCombatLoop();
             }
@@ -577,60 +584,53 @@
         }
 
         joyContainer.addEventListener("touchstart", (e) => {
+            if(synchronizedLobbyState.rematchPending) return;
             joystickActive = true;
             updateJoystickPosition(e.touches[0].clientX, e.touches[0].clientY);
         });
         window.addEventListener("touchmove", (e) => {
-            if (!joystickActive) return;
+            if (!joystickActive || synchronizedLobbyState.rematchPending) return;
             updateJoystickPosition(e.touches[0].clientX, e.touches[0].clientY);
         });
         window.addEventListener("touchend", resetJoystick);
 
         joyContainer.addEventListener("mousedown", (e) => {
+            if(synchronizedLobbyState.rematchPending) return;
             joystickActive = true;
             updateJoystickPosition(e.clientX, e.clientY);
         });
         window.addEventListener("mousemove", (e) => {
-            if (!joystickActive) return;
+            if (!joystickActive || synchronizedLobbyState.rematchPending) return;
             updateJoystickPosition(e.clientX, e.clientY);
         });
         window.addEventListener("mouseup", resetJoystick);
 
+        // Control pipeline loop for local client input updates
         setInterval(() => {
-            if (!clientIdentity) return;
+            if (!clientIdentity || synchronizedLobbyState.rematchPending) return;
             const currentActorData = synchronizedLobbyState[clientIdentity];
             if (!currentActorData || currentActorData.health <= 0) return;
 
-            if (joyYOffset < -0.5 && localYPositions[clientIdentity] === 0) {
-                localYVelocities[clientIdentity] = -22; 
-            }
-
-            if (localYPositions[clientIdentity] < 0 || localYVelocities[clientIdentity] !== 0) {
-                localYVelocities[clientIdentity] += gravity;
-                localYPositions[clientIdentity] += localYVelocities[clientIdentity];
-                
-                if (localYPositions[clientIdentity] >= 0) {
-                    localYPositions[clientIdentity] = 0;
-                    localYVelocities[clientIdentity] = 0;
-                }
+            let forceJumpStateTrigger = false;
+            if (joyYOffset < -0.5 && renderPositionsY[clientIdentity] === 0) {
+                renderVelocitiesY[clientIdentity] = -22; 
+                forceJumpStateTrigger = true;
             }
 
             let updatedX = currentActorData.posX + (joyXOffset * 10);
             updatedX = Math.max(20, Math.min(canvas.width - 40, updatedX));
 
-            // CRITICAL FIX: Update movement using specific field targeting. 
-            // This prevents positions updates from overwriting live health updates.
             const inputStatePatch = {};
             inputStatePatch[`${clientIdentity}.posX`] = updatedX;
-            inputStatePatch[`${clientIdentity}.posY`] = localYPositions[clientIdentity];
-            inputStatePatch[`${clientIdentity}.actionState`] = localYPositions[clientIdentity] < 0 ? 'jumping' : (joystickActive ? 'walking' : 'idle');
+            inputStatePatch[`${clientIdentity}.posY`] = renderPositionsY[clientIdentity];
+            inputStatePatch[`${clientIdentity}.actionState`] = forceJumpStateTrigger || renderPositionsY[clientIdentity] < 0 ? 'jumping' : (joystickActive ? 'walking' : 'idle');
             inputStatePatch[`${clientIdentity}.lastUpdated`] = Date.now();
             
             updateDoc(sessionRoomPath, inputStatePatch);
         }, 30);
 
         function sendMovementUpdate(actionState) {
-            if (!clientIdentity) return;
+            if (!clientIdentity || synchronizedLobbyState.rematchPending) return;
             const currentActorData = synchronizedLobbyState[clientIdentity];
             if (!currentActorData || currentActorData.health <= 0) return;
 
@@ -652,14 +652,11 @@
 
             if (!attacker || !target || target.health <= 0) return;
 
-            const verticalTargetDiff = Math.abs((attacker.posY || 0) - (target.posY || 0));
+            const verticalTargetDiff = Math.abs(renderPositionsY[clientIdentity] - renderPositionsY[opposingTargetKey]);
             if (Math.abs(attacker.posX - target.posX) < 75 && verticalTargetDiff < 50) {
                 const targetNewHealth = Math.max(0, target.health - 7);
-                
-                // CRITICAL FIX: Use specific field targeting so the movement loop doesn't roll back the health drop
                 const matchDamageUpdate = {};
                 matchDamageUpdate[`${opposingTargetKey}.health`] = targetNewHealth;
-                
                 updateDoc(sessionRoomPath, matchDamageUpdate);
             }
         }
@@ -674,8 +671,22 @@
             btnTarget.addEventListener("mouseup", () => sendMovementUpdate('idle'));
         });
 
+        // 60FPS high refresh-rate physics interpolation engine loop
         function runLocalRenderLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Calculate physics updates locally for BOTH fighters at 60 FPS
+            ['dharmik', 'avisha'].forEach(key => {
+                if (renderPositionsY[key] < 0 || renderVelocitiesY[key] !== 0) {
+                    renderVelocitiesY[key] += gravity;
+                    renderPositionsY[key] += renderVelocitiesY[key];
+                    
+                    if (renderPositionsY[key] >= 0) {
+                        renderPositionsY[key] = 0;
+                        renderVelocitiesY[key] = 0;
+                    }
+                }
+            });
 
             let backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             if (localVisualDamageTicker.dharmik > 0 || localVisualDamageTicker.avisha > 0) {
@@ -697,7 +708,7 @@
 
                 const playerHealth = (liveData && typeof liveData.health !== 'undefined') ? liveData.health : 100;
                 const playerX = liveData ? liveData.posX : (playerKey === 'dharmik' ? 80 : 260);
-                const playerY = liveData ? (liveData.posY || 0) : 0;
+                const playerY = renderPositionsY[playerKey]; // Access the local fluid positional value
                 const playerAction = liveData ? liveData.actionState : 'idle';
 
                 const targetHud = document.getElementById(`${playerKey === 'dharmik' ? 'p1' : 'p2'}-health`);
