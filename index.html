@@ -406,14 +406,16 @@
     let synchronizedLobbyState = {};
     let localVisualDamageTicker = { dharmik: 0, avisha: 0 };
     
-    // Significantly lowered movement and jumping physics values
     let renderPositionsX = { dharmik: 80, avisha: 260 };
     let renderPositionsY = { dharmik: 0, avisha: 0 };
     let renderVelocitiesY = { dharmik: 0, avisha: 0 };
     let localActionStates = { dharmik: 'idle', avisha: 'idle' };
-    const gravity = 0.5;
+    
+    // Adjusted for a much slower, floatier, and higher upward jump
+    const gravity = 0.22;
     const movementSpeed = 2.5; 
-    const jumpForce = -9;
+    const jumpForce = -9.5;
+    let hasJumpedThisInput = false;
 
     let activeProjectiles = [];
 
@@ -473,6 +475,7 @@
         renderPositionsY = { dharmik: 0, avisha: 0 };
         renderVelocitiesY = { dharmik: 0, avisha: 0 };
         renderPositionsX = { dharmik: 80, avisha: 260 };
+        hasJumpedThisInput = false;
         activeProjectiles = [];
     }
 
@@ -571,7 +574,7 @@
             owner: owner,
             x: startX + (30 * direction),
             y: startY,
-            speed: 5 * direction, // Slower fireball speed
+            speed: 5 * direction, 
             type: owner === 'dharmik' ? 'water' : 'fire',
             active: true
         });
@@ -596,7 +599,7 @@
         };
 
         const joyContainer = document.getElementById("joyContainer");
-        const joyKnob = document.getElementById("joyKnob");
+        const joyKnob = document.getElementById("ctrl-punch"); // fallback element target or dynamic rect finder
         let joystickActive = false;
         let joyXOffset = 0;
         let joyYOffset = 0;
@@ -617,7 +620,7 @@
                 deltaY = (deltaY / distance) * maxRadius;
             }
 
-            joyKnob.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            document.getElementById("joyKnob").style.transform = `translate(${deltaX}px, ${deltaY}px)`;
             joyXOffset = deltaX / maxRadius;
             joyYOffset = deltaY / maxRadius;
         }
@@ -626,9 +629,11 @@
             joystickActive = false;
             joyXOffset = 0;
             joyYOffset = 0;
-            joyKnob.style.transform = 'translate(0px, 0px)';
+            document.getElementById("joyKnob").style.transform = 'translate(0px, 0px)';
             if (clientIdentity && synchronizedLobbyState[clientIdentity]?.health > 0) {
-                localActionStates[clientIdentity] = 'idle';
+                if (localActionStates[clientIdentity] !== 'jumping') {
+                    localActionStates[clientIdentity] = 'idle';
+                }
                 sendCloudStatePatch();
             }
         }
@@ -662,9 +667,16 @@
 
             if (localActionStates[clientIdentity] === 'shooting') return;
 
-            if (joyYOffset < -0.5 && renderPositionsY[clientIdentity] === 0) {
-                renderVelocitiesY[clientIdentity] = jumpForce; 
-                localActionStates[clientIdentity] = 'jumping';
+            // Trigger only a single jump when pulled upwards
+            if (joyYOffset < -0.5) {
+                if (renderPositionsY[clientIdentity] === 0 && !hasJumpedThisInput) {
+                    renderVelocitiesY[clientIdentity] = jumpForce; 
+                    localActionStates[clientIdentity] = 'jumping';
+                    hasJumpedThisInput = true;
+                }
+            } else {
+                // Reset flag when joystick is returned below the jump threshold
+                hasJumpedThisInput = false;
             }
 
             renderPositionsX[clientIdentity] += (joyXOffset * movementSpeed);
