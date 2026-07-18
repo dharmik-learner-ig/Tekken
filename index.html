@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Retro Fighter: Dharmik vs Avisha</title>
+    <title>Retro Stickman Fighter: Dharmik vs Avisha</title>
     <style>
         * {
             box-sizing: border-box;
@@ -297,18 +297,18 @@
 
     <div id="lobby-screen" class="screen">
         <h1>TEKKEN RETRO 2D</h1>
-        <div class="subtitle-text">Dynamic Multi-Device Edition</div>
+        <div class="subtitle-text">Stickman Edition</div>
         
         <div class="char-grid">
             <div class="char-card" id="card-dharmik" onclick="selectProfile('dharmik')">
                 <div class="char-avatar">🥷</div>
                 <div class="char-name">Dharmik</div>
-                <div class="char-subtitle">Neon Ninja</div>
+                <div class="char-subtitle">Neon Stickman</div>
             </div>
             <div class="char-card" id="card-avisha" onclick="selectProfile('avisha')">
                 <div class="char-avatar">👩‍🎤</div>
                 <div class="char-name">Avisha</div>
-                <div class="char-subtitle">Crimson Fury</div>
+                <div class="char-subtitle">Crimson Stickwoman</div>
             </div>
         </div>
 
@@ -388,7 +388,7 @@
         packagePayload[clientIdentity] = {
             selected: true,
             health: 100,
-            posX: clientIdentity === 'dharmik' ? 60 : 260,
+            posX: clientIdentity === 'dharmik' ? 80 : 260,
             actionState: 'idle',
             lastUpdated: Date.now()
         };
@@ -436,11 +436,11 @@
         resizeGameWindow();
         window.addEventListener('resize', resizeGameWindow);
 
-        const groundLevel = canvas.height - 30;
+        const groundLevel = canvas.height - 40;
 
         const entities = {
-            dharmik: { color: "#00f0ff", avatar: "🥷", width: 55, height: 95 },
-            avisha: { color: "#ff3e6c", avatar: "👩‍🎤", width: 55, height: 95 }
+            dharmik: { color: "#00f0ff", headingRight: true },
+            avisha: { color: "#ff3e6c", headingRight: false }
         };
 
         function handleControlState(actionKey, isActive) {
@@ -453,11 +453,11 @@
             let currentStatus = 'idle';
 
             if (actionKey === 'Left' && isActive) {
-                updatedX = Math.max(5, updatedX - 15);
+                updatedX = Math.max(20, updatedX - 15);
                 currentStatus = 'walking';
             }
             if (actionKey === 'Right' && isActive) {
-                updatedX = Math.min(canvas.width - 60, updatedX + 15);
+                updatedX = Math.min(canvas.width - 40, updatedX + 15);
                 currentStatus = 'walking';
             }
             if (actionKey === 'Punch' && isActive) {
@@ -488,7 +488,7 @@
             if (!attacker || !target || target.health <= 0) return;
 
             const absoluteRange = Math.abs(attacker.posX - target.posX);
-            if (absoluteRange < 85) {
+            if (absoluteRange < 75) {
                 const targetNewHealth = Math.max(0, target.health - 7);
                 const matchDamageUpdate = {};
                 matchDamageUpdate[opposingTargetKey] = {
@@ -524,9 +524,11 @@
             ctx.fillStyle = backgroundGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Ground design
             ctx.fillStyle = "#22223b";
             ctx.fillRect(0, groundLevel, canvas.width, canvas.height - groundLevel);
 
+            // Stickman procedural graphics loop
             ['dharmik', 'avisha'].forEach(playerKey => {
                 const liveData = synchronizedLobbyState[playerKey];
                 const layout = entities[playerKey];
@@ -535,40 +537,79 @@
 
                 document.getElementById(`${playerKey === 'dharmik' ? 'p1' : 'p2'}-health`).style.width = `${liveData.health}%`;
 
-                const charY = groundLevel - layout.height;
+                // Set up dynamic layout anchors based on positions
+                const baseHeadX = liveData.posX;
+                const baseHeadY = groundLevel - 80;
+
+                ctx.lineWidth = 5;
+                ctx.lineCap = "round";
 
                 if (localVisualDamageTicker[playerKey] > 0) {
-                    ctx.fillStyle = "#ffffff";
+                    ctx.strokeStyle = "#ffffff";
                     localVisualDamageTicker[playerKey]--;
                 } else {
-                    ctx.fillStyle = layout.color;
+                    ctx.strokeStyle = layout.color;
                 }
-
-                ctx.beginPath();
-                ctx.roundRect(liveData.posX, charY, layout.width, layout.height, 12);
-                ctx.fill();
-
-                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                if (liveData.actionState === 'punching') {
-                    ctx.fillStyle = "#00f0ff";
-                    ctx.fillRect(playerKey === 'dharmik' ? liveData.posX + layout.width : liveData.posX - 25, charY + 25, 25, 12);
-                } else if (liveData.actionState === 'kicking') {
-                    ctx.fillStyle = "#ff3e6c";
-                    ctx.fillRect(playerKey === 'dharmik' ? liveData.posX + layout.width : liveData.posX - 30, charY + 50, 30, 15);
-                }
-
-                ctx.font = "36px sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText(layout.avatar, liveData.posX + (layout.width / 2), charY + 58);
 
                 if (liveData.health <= 0) {
-                    ctx.fillStyle = "#ff3e6c";
-                    ctx.font = "bold 16px monospace";
-                    ctx.fillText("KO", liveData.posX + (layout.width / 2), charY - 15);
+                    // Knocked out state configuration
+                    ctx.beginPath();
+                    ctx.arc(baseHeadX, groundLevel - 15, 10, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(baseHeadX, groundLevel - 15);
+                    ctx.lineTo(baseHeadX + 25, groundLevel - 5);
+                    ctx.stroke();
+                    return;
                 }
+
+                // 1. Draw Head Circle
+                ctx.beginPath();
+                ctx.arc(baseHeadX, baseHeadY, 12, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // 2. Main Spine Spine line
+                const spineBottomY = baseHeadY + 35;
+                ctx.beginPath();
+                ctx.moveTo(baseHeadX, baseHeadY + 12);
+                ctx.lineTo(baseHeadX, spineBottomY);
+                ctx.stroke();
+
+                // 3. Procedural limbs rendering based on state flags
+                const directionMultiplier = playerKey === 'dharmik' ? 1 : -1;
+
+                // Hands handling
+                ctx.beginPath();
+                if (liveData.actionState === 'punching') {
+                    // Striking extension forward vector path
+                    ctx.moveTo(baseHeadX, baseHeadY + 18);
+                    ctx.lineTo(baseHeadX + (28 * directionMultiplier), baseHeadY + 18);
+                } else {
+                    // Ready block positioning
+                    ctx.moveTo(baseHeadX, baseHeadY + 18);
+                    ctx.lineTo(baseHeadX + (12 * directionMultiplier), baseHeadY + 28);
+                }
+                ctx.stroke();
+
+                // Legs handling
+                ctx.beginPath();
+                if (liveData.actionState === 'kicking') {
+                    // High extension strike vector path
+                    ctx.moveTo(baseHeadX, spineBottomY);
+                    ctx.lineTo(baseHeadX + (30 * directionMultiplier), spineBottomY - 15);
+                    
+                    // Standing leg stability base line
+                    ctx.moveTo(baseHeadX, spineBottomY);
+                    ctx.lineTo(baseHeadX - (5 * directionMultiplier), groundLevel);
+                } else {
+                    // Default standing position stance vector lines
+                    ctx.moveTo(baseHeadX, spineBottomY);
+                    ctx.lineTo(baseHeadX - 10, groundLevel);
+                    
+                    ctx.moveTo(baseHeadX, spineBottomY);
+                    ctx.lineTo(baseHeadX + 10, groundLevel);
+                }
+                ctx.stroke();
             });
 
             requestAnimationFrame(runLocalRenderLoop);
