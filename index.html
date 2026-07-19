@@ -189,7 +189,7 @@
             height: 100%;
             width: 100%;
             border-radius: 7px;
-            transition: width 0.15s ease-out;
+            transition: width 0.1s ease-out;
         }
         #p1-health {
             background: linear-gradient(90deg, #00bfff, #00f0ff);
@@ -412,11 +412,16 @@
     let localActionStates = { dharmik: 'idle', avisha: 'idle' };
     
     const gravity = 0.22;
-    const movementSpeed = 4.5; // Increased running speed here
+    const movementSpeed = 4.5; 
     const jumpForce = -9.5;
     let hasJumpedThisInput = false;
 
     let activeProjectiles = [];
+
+    // Global variable tracking for engine stability across runs
+    let joyXOffset = 0;
+    let joyYOffset = 0;
+    let joystickActive = false;
 
     window.selectProfile = function(profileKey) {
         document.getElementById("card-dharmik").classList.remove("selected");
@@ -476,6 +481,10 @@
         renderPositionsX = { dharmik: 80, avisha: 260 };
         hasJumpedThisInput = false;
         activeProjectiles = [];
+        joyXOffset = 0;
+        joyYOffset = 0;
+        joystickActive = false;
+        document.getElementById("joyKnob").style.transform = 'translate(0px, 0px)';
     }
 
     onSnapshot(sessionRoomPath, async (snapshot) => {
@@ -579,6 +588,7 @@
         });
     }
 
+    let isPhysicsLoopRunning = false;
     function initCombatGraphicsEngine() {
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
@@ -598,9 +608,6 @@
         };
 
         const joyContainer = document.getElementById("joyContainer");
-        let joystickActive = false;
-        let joyXOffset = 0;
-        let joyYOffset = 0;
 
         function updateJoystickPosition(touchX, touchY) {
             const containerRect = joyContainer.getBoundingClientRect();
@@ -658,36 +665,39 @@
         });
         window.addEventListener("mouseup", resetJoystick);
 
-        setInterval(() => {
-            if (!clientIdentity || synchronizedLobbyState.rematchPending) return;
-            const currentActorData = synchronizedLobbyState[clientIdentity];
-            if (!currentActorData || currentActorData.health <= 0) return;
+        if (!isPhysicsLoopRunning) {
+            isPhysicsLoopRunning = true;
+            setInterval(() => {
+                if (!clientIdentity || synchronizedLobbyState.rematchPending) return;
+                const currentActorData = synchronizedLobbyState[clientIdentity];
+                if (!currentActorData || currentActorData.health <= 0) return;
 
-            if (localActionStates[clientIdentity] === 'shooting') return;
+                if (localActionStates[clientIdentity] === 'shooting') return;
 
-            if (joyYOffset < -0.5) {
-                if (renderPositionsY[clientIdentity] === 0 && !hasJumpedThisInput) {
-                    renderVelocitiesY[clientIdentity] = jumpForce; 
-                    localActionStates[clientIdentity] = 'jumping';
-                    hasJumpedThisInput = true;
+                if (joyYOffset < -0.5) {
+                    if (renderPositionsY[clientIdentity] === 0 && !hasJumpedThisInput) {
+                        renderVelocitiesY[clientIdentity] = jumpForce; 
+                        localActionStates[clientIdentity] = 'jumping';
+                        hasJumpedThisInput = true;
+                    }
+                } else {
+                    hasJumpedThisInput = false;
                 }
-            } else {
-                hasJumpedThisInput = false;
-            }
 
-            renderPositionsX[clientIdentity] += (joyXOffset * movementSpeed);
-            renderPositionsX[clientIdentity] = Math.max(20, Math.min(canvas.width - 40, renderPositionsX[clientIdentity]));
+                renderPositionsX[clientIdentity] += (joyXOffset * movementSpeed);
+                renderPositionsX[clientIdentity] = Math.max(20, Math.min(canvas.width - 40, renderPositionsX[clientIdentity]));
 
-            if (renderPositionsY[clientIdentity] < 0) {
-                localActionStates[clientIdentity] = 'jumping';
-            } else if (joystickActive && localActionStates[clientIdentity] !== 'jumping') {
-                localActionStates[clientIdentity] = 'walking';
-            } else if (!joystickActive && localActionStates[clientIdentity] !== 'jumping') {
-                localActionStates[clientIdentity] = 'idle';
-            }
+                if (renderPositionsY[clientIdentity] < 0) {
+                    localActionStates[clientIdentity] = 'jumping';
+                } else if (joystickActive && localActionStates[clientIdentity] !== 'jumping') {
+                    localActionStates[clientIdentity] = 'walking';
+                } else if (!joystickActive && localActionStates[clientIdentity] !== 'jumping') {
+                    localActionStates[clientIdentity] = 'idle';
+                }
 
-            sendCloudStatePatch();
-        }, 1000 / 60);
+                sendCloudStatePatch();
+            }, 1000 / 60);
+        }
 
         let lastCloudUpdate = 0;
         function sendCloudStatePatch() {
@@ -840,16 +850,22 @@
             activeProjectiles = activeProjectiles.filter(p => p.active);
 
             ['dharmik', 'avisha'].forEach(playerKey => {
-                const liveData = synchronizedLobbyState[playerKey];
                 const layout = entities[playerKey];
 
-                const playerHealth = (liveData && typeof liveData.health !== 'undefined') ? liveData.health : 100;
+                let playerHealth = 100;
+                if (synchronizedLobbyState && synchronizedLobbyState[playerKey] && typeof synchronizedLobbyState[playerKey].health !== 'undefined') {
+                    playerHealth = synchronizedLobbyState[playerKey].health;
+                }
+
+                const barId = playerKey === 'dharmik' ? 'p1-health' : 'p2-health';
+                const targetHud = document.getElementById(barId);
+                if (targetHud) {
+                    targetHud.style.width = playerHealth + "%";
+                }
+
                 const playerX = renderPositionsX[playerKey];
                 const playerY = renderPositionsY[playerKey]; 
                 const playerAction = localActionStates[playerKey];
-
-                const targetHud = document.getElementById(`${playerKey === 'dharmik' ? 'p1' : 'p2'}-health`);
-                if (targetHud) targetHud.style.width = `${playerHealth}%`;
 
                 const baseHeadX = playerX;
                 const baseHeadY = groundLevel - 80 + playerY;
